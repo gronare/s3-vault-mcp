@@ -394,10 +394,14 @@ async def _dispatch(name: str, args: dict) -> str:
 # Entrypoint
 # ——————————————————————————————
 
-async def main():
+async def _main():
     async with stdio_server() as (r, w):
         await app.run(r, w, app.create_initialization_options())
 
 
+def main():
+    asyncio.run(_main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
