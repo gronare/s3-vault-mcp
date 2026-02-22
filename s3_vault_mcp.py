@@ -39,7 +39,7 @@ s3 = boto3.client(
     config=Config(signature_version="s3v4"),
 )
 
-SERVER_INSTRUCTIONS = """\
+SERVER_INSTRUCTIONS = f"""\
 S3 Vault MCP — tool usage guide
 
 Tools are listed cheapest-first. Always start with the cheapest tool that can answer the question.
@@ -49,14 +49,15 @@ Tools are listed cheapest-first. Always start with the cheapest tool that can an
 ────────────────────────────────────────
 Returns frontmatter metadata only. Does NOT fetch file bodies. Fast.
 
-Use query= to match across filename, title, tags, and configured path fields simultaneously:
-  search(query="secret-santa")        # finds all notes mentioning secret-santa anywhere in metadata
-  search(query="homelab", tag="apps") # combine free-text with tag filter
+query= matches case-insensitively across the filename stem and these configured frontmatter fields:
+  {", ".join(SEARCH_FIELDS)}
+
+  search(query="my-project")           # matches filename, title, tags, and path
+  search(query="auth", tag="active")   # combine free-text with a filter
 
 Filters (applied after query):
-  tag=      exact tag match
+  tag=      exact match on the tags list
   status=   e.g. active, draft, complete
-  fs_path=  substring match on the path frontmatter field
 
 Session-start pattern:
   1. search(query="<topic or directory name>")
@@ -100,18 +101,17 @@ async def list_tools() -> list[Tool]:
             name="search",
             description=(
                 "CHEAPEST — use this first. Returns frontmatter metadata for all notes "
-                "without fetching file bodies. Use query= to match across filename, title, "
-                "tags, and path fields in one call. Then read_file only the notes you need. "
-                "Supports optional tag, status, fs_path filters."
+                "without fetching file bodies. Use query= to match across filename and "
+                "configured frontmatter fields in one call. Then read_file only the notes "
+                "you need. Supports optional tag and status filters."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "path":    {"type": "string", "description": "Optional vault directory prefix to limit scope", "default": ""},
-                    "query":   {"type": "string", "description": "Free-text match across filename, title, tags, and path fields (case-insensitive)"},
-                    "tag":     {"type": "string", "description": "Only return notes containing this exact tag"},
-                    "status":  {"type": "string", "description": "Only return notes with this status (e.g. active, draft, complete)"},
-                    "fs_path": {"type": "string", "description": "Filter by filesystem path field in frontmatter (substring match)"},
+                    "path":   {"type": "string", "description": "Optional vault directory prefix to limit scope", "default": ""},
+                    "query":  {"type": "string", "description": "Free-text match across filename and configured frontmatter fields (case-insensitive)"},
+                    "tag":    {"type": "string", "description": "Only return notes containing this exact tag"},
+                    "status": {"type": "string", "description": "Only return notes with this status (e.g. active, draft, complete)"},
                 },
             },
         ),
@@ -285,7 +285,6 @@ async def _dispatch(name: str, args: dict) -> str:
         query = args.get("query", "").strip()
         tag_filter = args.get("tag", "").lower()
         status_filter = args.get("status", "").lower()
-        fs_path_filter = args.get("fs_path", "").lower()
         keys = [k for k in list_all_keys(prefix) if k.endswith(".md")]
 
         rows = []
@@ -304,15 +303,12 @@ async def _dispatch(name: str, args: dict) -> str:
             tags_lower = [t.lower() for t in tags]
 
             status = str(fm.get("status", "")).lower()
-            fs_path = str(fm.get("path", "")).lower()
 
             if query and not _matches_query(key, fm, query):
                 continue
             if tag_filter and tag_filter not in tags_lower:
                 continue
             if status_filter and status != status_filter:
-                continue
-            if fs_path_filter and fs_path_filter not in fs_path:
                 continue
 
             title = fm.get("title", "")
