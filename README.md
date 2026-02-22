@@ -10,14 +10,14 @@ MCP server that gives Claude direct read/write access to a markdown vault stored
 ## Add to Claude Code
 
 ```bash
-claude mcp add \
+claude mcp add vault \
   -s user \
   -e S3_ENDPOINT=https://your-s3.example.com \
   -e S3_ACCESS_KEY=yourkey \
   -e S3_SECRET_KEY=yoursecret \
   -e S3_BUCKET=obsidian \
   -e S3_SEARCH_FIELDS=title,tags,path \
-  vault -- docker run -i --rm \
+  -- docker run -i --rm \
     -e S3_ENDPOINT -e S3_ACCESS_KEY -e S3_SECRET_KEY -e S3_BUCKET -e S3_SEARCH_FIELDS \
     ghcr.io/gronare/s3-vault-mcp:latest
 ```
