@@ -19,7 +19,7 @@ claude mcp add \
   -e S3_SEARCH_FIELDS=title,tags,path \
   vault -- docker run -i --rm \
     -e S3_ENDPOINT -e S3_ACCESS_KEY -e S3_SECRET_KEY -e S3_BUCKET -e S3_SEARCH_FIELDS \
-    ghcr.io/OWNER/s3-vault-mcp:latest
+    ghcr.io/gronare/s3-vault-mcp:latest
 ```
 
 Docker pulls the image automatically on first run. Verify the registration with `claude mcp get vault`, then restart Claude Code and check `/mcp`.
