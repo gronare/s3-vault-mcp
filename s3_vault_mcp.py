@@ -62,7 +62,10 @@ Filters (applied after query):
 Session-start pattern:
   1. search(query="<topic or directory name>")
   2. read_file on the 2-3 most relevant results
-  3. Proceed with full context
+  3. If starting new work: write a plan note to the vault BEFORE making any
+     file changes. This is a hard gate — the note must exist before the first
+     Edit/Write/Bash tool call that modifies a file.
+  4. Proceed with full context
 
 ────────────────────────────────────────
 2. read_file
