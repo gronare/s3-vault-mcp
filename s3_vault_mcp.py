@@ -223,25 +223,23 @@ def parse_frontmatter(content: str) -> dict:
         return {}
 
 
-def _matches_query(key: str, fm: dict, query: str) -> bool:
-    """Return True if the note matches the free-text query against filename + SEARCH_FIELDS."""
-    q = query.lower()
-    # Always check filename stem
+def _query_score(key: str, fm: dict, query: str) -> int:
+    """Return the number of query terms that match filename + SEARCH_FIELDS. 0 = no match."""
+    terms = query.lower().split()
+    if not terms:
+        return 0
     stem = key.rsplit("/", 1)[-1].removesuffix(".md").lower()
-    if q in stem:
-        return True
-    # Check configured frontmatter fields
+    field_values = [stem]
     for field in SEARCH_FIELDS:
         val = fm.get(field)
         if val is None:
             continue
         if isinstance(val, list):
-            if any(q in str(v).lower() for v in val):
-                return True
+            field_values.extend(str(v).lower() for v in val)
         else:
-            if q in str(val).lower():
-                return True
-    return False
+            field_values.append(str(val).lower())
+    haystack = " ".join(field_values)
+    return sum(1 for term in terms if term in haystack)
 
 
 def list_all_keys(prefix: str = "") -> list[str]:
@@ -287,7 +285,7 @@ async def _dispatch(name: str, args: dict) -> str:
         status_filter = args.get("status", "").lower()
         keys = [k for k in list_all_keys(prefix) if k.endswith(".md")]
 
-        rows = []
+        scored = []
         for key in keys:
             try:
                 content = get_object(key)
@@ -304,8 +302,13 @@ async def _dispatch(name: str, args: dict) -> str:
 
             status = str(fm.get("status", "")).lower()
 
-            if query and not _matches_query(key, fm, query):
-                continue
+            if query:
+                score = _query_score(key, fm, query)
+                if score == 0:
+                    continue
+            else:
+                score = 0
+
             if tag_filter and tag_filter not in tags_lower:
                 continue
             if status_filter and status != status_filter:
@@ -314,11 +317,12 @@ async def _dispatch(name: str, args: dict) -> str:
             title = fm.get("title", "")
             tags_str = ", ".join(tags)
             path_str = fm.get("path", "")
-            rows.append(f"{key} | {title} | [{tags_str}] | {status} | {path_str}")
+            scored.append((score, f"{key} | {title} | [{tags_str}] | {status} | {path_str}"))
 
-        if not rows:
+        if not scored:
             return "No notes matched."
-        return "\n".join(rows)
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return "\n".join(row for _, row in scored)
 
     elif name == "list_files":
         prefix = args.get("path", "")
